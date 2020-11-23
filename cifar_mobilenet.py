@@ -164,16 +164,16 @@ def create_model():
 
     # The number of channels in ResNet18 is divisible by 8.
     # This is required for fast GEMM integer matrix multiplication.
-    # model = torchvision.models.resnet18(pretrained=False)
-    model = resnet18(pretrained=False)
+    model = torchvision.models.mobilenet_v2(pretrained=False)
+    # model = resnet18(pretrained=False)
 
     # We would use the pretrained ResNet18 as a feature extractor.
     # for param in model.parameters():
     #     param.requires_grad = False
     
     # Modify the last FC layer
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 10)
+    num_features = model.last_channel
+    model.classifier[1] = nn.Linear(num_features, 10)
 
     return model
 
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     cpu_device = torch.device("cpu:0")
 
     model_dir = "saved_models"
-    model_filename = "resnet18_cifar10.pt"
+    model_filename = "mobilenet_cifar10.pt"
     model_filepath = os.path.join(model_dir, model_filename)
 
     set_random_seeds(random_seed=0)
@@ -258,29 +258,36 @@ if __name__ == "__main__":
     fused_model = copy.deepcopy(model)
     # Currently, static quantization does not support CUDA device
     #fused_model.to(cpu_device)
+    # print(fused_model)
+
+    for module_name, module in fused_model.features.named_modules():
+        # if module_name == "ConvBNReLU":
+        #     torch.quantization.fuse_modules(module, ['0', '1', '2'], inplace=True)
+        if type(module) == torchvision.models.mobilenet.ConvBNReLU:
+            torch.quantization.fuse_modules(module, ['0', '1', '2'], inplace=True)
+        if type(module) == torchvision.models.mobilenet.InvertedResidual:
+                for idx in range(len(module.conv)):
+                    if type(module.conv[idx]) == nn.Conv2d:
+                        torch.quantization.fuse_modules(module.conv, [str(idx), str(idx + 1)], inplace=True)
+        
+    print(fused_model)
+    '''
 
     # Fuse the model in place rather manually.
-    # fused_model = torch.quantization.fuse_modules(fused_model, [['conv1', 'bn1', 'relu']], inplace=True)
+    fused_model = torch.quantization.fuse_modules(fused_model, [['conv1', 'bn1', 'relu']], inplace=True)
     # for module_name, module in fused_model.named_children():
     #     if "layer" in module_name:
     #         for basic_block_name, basic_block in module.named_children():
     #             torch.quantization.fuse_modules(basic_block, [['conv2', 'bn2']], inplace=True)
     #             torch.quantization.fuse_modules(basic_block, [['conv1', 'bn1', 'relu']], inplace=True)
-    for module_name, module in fused_model.named_children():
-        print("=" * 50)
-        print(module_name)
-        print(module)
-        print("=" * 50)
-
-
 
     model.eval()
     fused_model.eval()
 
     # Print fused model
-    #print(model)
-    #print("="* 100)
-    #print(fused_model)
+    print(model)
+    print("="* 100)
+    print(fused_model)
 
 
     # Model and fused model should be equivalent
@@ -365,4 +372,5 @@ if __name__ == "__main__":
     #                     print("-------------------")
 
     #print(model)
+    '''
 
