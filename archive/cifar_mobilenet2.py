@@ -18,7 +18,9 @@ from torchvision import datasets, transforms
 import copy
 import numpy as np
 
-from resnet import resnet18
+# from resnet import resnet18
+from mobilenet import MobileNetV2
+import mobilenet
 
 def set_random_seeds(random_seed=0):
 
@@ -263,14 +265,21 @@ if __name__ == "__main__":
     for module_name, module in fused_model.features.named_modules():
         # if module_name == "ConvBNReLU":
         #     torch.quantization.fuse_modules(module, ['0', '1', '2'], inplace=True)
-        if type(module) == torchvision.models.mobilenet.ConvBNReLU:
+        if type(module) == mobilenet.ConvBNReLU:
             torch.quantization.fuse_modules(module, ['0', '1', '2'], inplace=True)
-        if type(module) == torchvision.models.mobilenet.InvertedResidual:
+        if type(module) == mobilenet.InvertedResidual:
                 for idx in range(len(module.conv)):
                     if type(module.conv[idx]) == nn.Conv2d:
                         torch.quantization.fuse_modules(module.conv, [str(idx), str(idx + 1)], inplace=True)
         
     print(fused_model)
+
+    model.eval()
+    fused_model.eval()
+
+    assert is_equivalent(model_1=model, model_2=fused_model, device=cpu_device), "Fused model is not equivalent to the fused model!"
+
+
     '''
 
     # Fuse the model in place rather manually.

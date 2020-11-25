@@ -1,5 +1,3 @@
-# Modified from
-# https://github.com/pytorch/vision/blob/release/0.8.0/torchvision/models/resnet.py
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -60,14 +58,13 @@ class BasicBlock(nn.Module):
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
-        # Rename relu to relu1
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
         self.skip_add = nn.quantized.FloatFunctional()
-        # Remember to use two independent ReLU for layer fusion.
+        # Remember to use two independent ReLU for layer fusion!
         self.relu2 = nn.ReLU(inplace=True)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -82,8 +79,7 @@ class BasicBlock(nn.Module):
 
         if self.downsample is not None:
             identity = self.downsample(x)
-        
-        # Use FloatFunctional for addition for quantization compatibility
+
         # out += identity
         out = self.skip_add.add(identity, out)
         out = self.relu2(out)
@@ -122,18 +118,17 @@ class Bottleneck(nn.Module):
         self.bn2 = norm_layer(width)
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
-        self.relu1 = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
         self.skip_add = nn.quantized.FloatFunctional()
-        self.relu2 = nn.ReLU(inplace=True)
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu1(out)
+        out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
@@ -147,7 +142,7 @@ class Bottleneck(nn.Module):
 
         # out += identity
         out = self.skip_add.add(identity, out)
-        out = self.relu2(out)
+        out = self.relu(out)
 
         return out
 
