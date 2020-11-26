@@ -11,7 +11,6 @@ import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
-# from torch.optim import lr_scheduler
 import torchvision
 from torchvision import datasets, transforms
 
@@ -311,7 +310,13 @@ def main():
     quantized_model = QuantizedResNet18(model_fp32=fused_model)
     # Select quantization schemes from 
     # https://pytorch.org/docs/stable/quantization-support.html
-    quantized_model.qconfig = torch.quantization.get_default_qconfig("fbgemm")
+    quantization_config = torch.quantization.get_default_qconfig("fbgemm")
+    # Custom quantization configurations
+    # quantization_config = torch.quantization.default_qconfig
+    # quantization_config = torch.quantization.QConfig(activation=torch.quantization.MinMaxObserver.with_args(dtype=torch.quint8), weight=torch.quantization.MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric))
+
+    quantized_model.qconfig = quantization_config
+    
     # Print quantization configurations
     print(quantized_model.qconfig)
 
