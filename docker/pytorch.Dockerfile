@@ -54,4 +54,3 @@ RUN cd /tmp && \
     rm ./cmake-3.16.8-Linux-x86_64.sh
 
 RUN pip install torch==1.7.0 torchvision==0.8.1
-RUN pip install transformers==3.5.1
