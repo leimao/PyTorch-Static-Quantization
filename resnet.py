@@ -1,3 +1,4 @@
+# resnet.py
 # Modified from
 # https://github.com/pytorch/vision/blob/release/0.8.0/torchvision/models/resnet.py
 import torch
@@ -85,6 +86,7 @@ class BasicBlock(nn.Module):
         
         # Use FloatFunctional for addition for quantization compatibility
         # out += identity
+        # out = torch.add(identity, out)
         out = self.skip_add.add(identity, out)
         out = self.relu2(out)
 
@@ -146,6 +148,7 @@ class Bottleneck(nn.Module):
             identity = self.downsample(x)
 
         # out += identity
+        # out = torch.add(identity, out)
         out = self.skip_add.add(identity, out)
         out = self.relu2(out)
 

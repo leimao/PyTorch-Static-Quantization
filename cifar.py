@@ -1,10 +1,3 @@
-# https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
-# https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
-# https://pytorch.org/docs/stable/quantization.html
-# https://pytorch.org/docs/master/torch.quantization.html#torch.quantization.prepare
-# https://pytorch.org/tutorials/advanced/static_quantization_tutorial.html
-# https://leimao.github.io/blog/PyTorch-Distributed-Training/
-
 import os
 import random
 
@@ -142,7 +135,7 @@ def train_model(model, train_loader, test_loader, device):
 
     return model
 
-def calibrate_model(model, loader, device):
+def calibrate_model(model, loader, device=torch.device("cpu:0")):
 
     model.to(device)
     model.eval()
@@ -271,9 +264,9 @@ def main():
     train_loader, test_loader = prepare_dataloader(num_workers=8, train_batch_size=128, eval_batch_size=256)
     
     # Train model.
-    # model = train_model(model=model, train_loader=train_loader, test_loader=test_loader, device=cuda_device)
+    model = train_model(model=model, train_loader=train_loader, test_loader=test_loader, device=cuda_device)
     # Save model.
-    # save_model(model=model, model_dir=model_dir, model_filename=model_filename)
+    save_model(model=model, model_dir=model_dir, model_filename=model_filename)
     # Load a pretrained model.
     model = load_model(model=model, model_filepath=model_filepath, device=cuda_device)
     # Move the model to CPU since static quantization does not support CUDA currently.
@@ -308,6 +301,9 @@ def main():
     # Prepare the model for static quantization. This inserts observers in
     # the model that will observe activation tensors during calibration.
     quantized_model = QuantizedResNet18(model_fp32=fused_model)
+    # Using un-fused model will fail.
+    # Because there is no quantized layer implementation for a single batch normalization layer.
+    # quantized_model = QuantizedResNet18(model_fp32=model)
     # Select quantization schemes from 
     # https://pytorch.org/docs/stable/quantization-support.html
     quantization_config = torch.quantization.get_default_qconfig("fbgemm")
@@ -320,12 +316,17 @@ def main():
     # Print quantization configurations
     print(quantized_model.qconfig)
 
+    # https://pytorch.org/docs/master/torch.quantization.html#torch.quantization.prepare
     torch.quantization.prepare(quantized_model, inplace=True)
 
     # Use training data for calibration.
     calibrate_model(model=quantized_model, loader=train_loader, device=cpu_device)
 
     quantized_model = torch.quantization.convert(quantized_model, inplace=True)
+
+    # Using high-level static quantization wrapper
+    # The above steps, including torch.quantization.prepare, calibrate_model, and torch.quantization.convert, are also equivalent to
+    # quantized_model = torch.quantization.quantize(model=quantized_model, run_fn=calibrate_model, run_args=[train_loader], mapping=None, inplace=False)
 
     quantized_model.eval()
 
