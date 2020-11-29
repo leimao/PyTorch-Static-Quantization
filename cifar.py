@@ -295,7 +295,6 @@ def main():
     print(fused_model)
 
     # Model and fused model should be equivalent.
-    # assert is_equivalent(model_1=model, model_2=fused_model, device=cpu_device), "Fused model is not equivalent to the fused model!"
     assert model_equivalence(model_1=model, model_2=fused_model, device=cpu_device, rtol=1e-03, atol=1e-06, num_tests=100, input_size=(1,3,32,32)), "Fused model is not equivalent to the original model!"
 
     # Prepare the model for static quantization. This inserts observers in
