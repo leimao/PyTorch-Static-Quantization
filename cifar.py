@@ -27,12 +27,12 @@ def prepare_dataloader(num_workers=8, train_batch_size=128, eval_batch_size=256)
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
     test_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
     train_set = torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=train_transform) 
@@ -83,19 +83,24 @@ def evaluate_model(model, test_loader, device, criterion=None):
 
     return eval_loss, eval_accuracy
 
-def train_model(model, train_loader, test_loader, device):
+def train_model(model, train_loader, test_loader, device, learning_rate=1e-1, num_epochs=200):
 
     # The training configurations were not carefully selected.
-    learning_rate = 1e-2
-    num_epochs = 20
-
+    
     criterion = nn.CrossEntropyLoss()
 
     model.to(device)
 
     # It seems that SGD optimizer is better than Adam optimizer for ResNet18 training on CIFAR10.
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-5)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-4)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=500)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1, last_epoch=-1)
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+
+    # Evaluation
+    model.eval()
+    eval_loss, eval_accuracy = evaluate_model(model=model, test_loader=test_loader, device=device, criterion=criterion)
+    print("Epoch: {:02d} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(-1, eval_loss, eval_accuracy))
 
     for epoch in range(num_epochs):
 
@@ -131,7 +136,10 @@ def train_model(model, train_loader, test_loader, device):
         model.eval()
         eval_loss, eval_accuracy = evaluate_model(model=model, test_loader=test_loader, device=device, criterion=criterion)
 
-        print("Epoch: {:02d} Train Loss: {:.3f} Train Acc: {:.3f} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(epoch, train_loss, train_accuracy, eval_loss, eval_accuracy))
+        # Set learning rate scheduler
+        scheduler.step()
+
+        print("Epoch: {:03d} Train Loss: {:.3f} Train Acc: {:.3f} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(epoch, train_loss, train_accuracy, eval_loss, eval_accuracy))
 
     return model
 
@@ -264,7 +272,7 @@ def main():
     train_loader, test_loader = prepare_dataloader(num_workers=8, train_batch_size=128, eval_batch_size=256)
     
     # Train model.
-    model = train_model(model=model, train_loader=train_loader, test_loader=test_loader, device=cuda_device)
+    model = train_model(model=model, train_loader=train_loader, test_loader=test_loader, device=cuda_device, learning_rate=1e-1, num_epochs=200)
     # Save model.
     save_model(model=model, model_dir=model_dir, model_filename=model_filename)
     # Load a pretrained model.
