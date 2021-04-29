@@ -13,6 +13,7 @@ import numpy as np
 
 from resnet import resnet18
 
+
 def set_random_seeds(random_seed=0):
 
     torch.manual_seed(random_seed)
@@ -21,37 +22,51 @@ def set_random_seeds(random_seed=0):
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-def prepare_dataloader(num_workers=8, train_batch_size=128, eval_batch_size=256):
+
+def prepare_dataloader(num_workers=8,
+                       train_batch_size=128,
+                       eval_batch_size=256):
 
     train_transform = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225)),
     ])
 
     test_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225)),
     ])
 
-    train_set = torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=train_transform) 
+    train_set = torchvision.datasets.CIFAR10(root="data",
+                                             train=True,
+                                             download=True,
+                                             transform=train_transform)
     # We will use test set for validation and test in this project.
     # Do not use test set for validation in practice!
-    test_set = torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=test_transform)
+    test_set = torchvision.datasets.CIFAR10(root="data",
+                                            train=False,
+                                            download=True,
+                                            transform=test_transform)
 
     train_sampler = torch.utils.data.RandomSampler(train_set)
     test_sampler = torch.utils.data.SequentialSampler(test_set)
 
-    train_loader = torch.utils.data.DataLoader(
-        dataset=train_set, batch_size=train_batch_size,
-        sampler=train_sampler, num_workers=num_workers)
+    train_loader = torch.utils.data.DataLoader(dataset=train_set,
+                                               batch_size=train_batch_size,
+                                               sampler=train_sampler,
+                                               num_workers=num_workers)
 
-    test_loader = torch.utils.data.DataLoader(
-        dataset=test_set, batch_size=eval_batch_size,
-        sampler=test_sampler, num_workers=num_workers)
+    test_loader = torch.utils.data.DataLoader(dataset=test_set,
+                                              batch_size=eval_batch_size,
+                                              sampler=test_sampler,
+                                              num_workers=num_workers)
 
     return train_loader, test_loader
+
 
 def evaluate_model(model, test_loader, device, criterion=None):
 
@@ -83,24 +98,40 @@ def evaluate_model(model, test_loader, device, criterion=None):
 
     return eval_loss, eval_accuracy
 
-def train_model(model, train_loader, test_loader, device, learning_rate=1e-1, num_epochs=200):
+
+def train_model(model,
+                train_loader,
+                test_loader,
+                device,
+                learning_rate=1e-1,
+                num_epochs=200):
 
     # The training configurations were not carefully selected.
-    
+
     criterion = nn.CrossEntropyLoss()
 
     model.to(device)
 
     # It seems that SGD optimizer is better than Adam optimizer for ResNet18 training on CIFAR10.
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-4)
+    optimizer = optim.SGD(model.parameters(),
+                          lr=learning_rate,
+                          momentum=0.9,
+                          weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=500)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1, last_epoch=-1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                     milestones=[100, 150],
+                                                     gamma=0.1,
+                                                     last_epoch=-1)
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 
     # Evaluation
     model.eval()
-    eval_loss, eval_accuracy = evaluate_model(model=model, test_loader=test_loader, device=device, criterion=criterion)
-    print("Epoch: {:02d} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(-1, eval_loss, eval_accuracy))
+    eval_loss, eval_accuracy = evaluate_model(model=model,
+                                              test_loader=test_loader,
+                                              device=device,
+                                              criterion=criterion)
+    print("Epoch: {:02d} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(
+        -1, eval_loss, eval_accuracy))
 
     for epoch in range(num_epochs):
 
@@ -134,14 +165,21 @@ def train_model(model, train_loader, test_loader, device, learning_rate=1e-1, nu
 
         # Evaluation
         model.eval()
-        eval_loss, eval_accuracy = evaluate_model(model=model, test_loader=test_loader, device=device, criterion=criterion)
+        eval_loss, eval_accuracy = evaluate_model(model=model,
+                                                  test_loader=test_loader,
+                                                  device=device,
+                                                  criterion=criterion)
 
         # Set learning rate scheduler
         scheduler.step()
 
-        print("Epoch: {:03d} Train Loss: {:.3f} Train Acc: {:.3f} Eval Loss: {:.3f} Eval Acc: {:.3f}".format(epoch, train_loss, train_accuracy, eval_loss, eval_accuracy))
+        print(
+            "Epoch: {:03d} Train Loss: {:.3f} Train Acc: {:.3f} Eval Loss: {:.3f} Eval Acc: {:.3f}"
+            .format(epoch, train_loss, train_accuracy, eval_loss,
+                    eval_accuracy))
 
     return model
+
 
 def calibrate_model(model, loader, device=torch.device("cpu:0")):
 
@@ -153,21 +191,34 @@ def calibrate_model(model, loader, device=torch.device("cpu:0")):
         labels = labels.to(device)
         _ = model(inputs)
 
-def measure_inference_latency(model, device, input_size=(1,3,32,32), num_samples=100):
+
+def measure_inference_latency(model,
+                              device,
+                              input_size=(1, 3, 32, 32),
+                              num_samples=100,
+                              num_warmups=10):
 
     model.to(device)
     model.eval()
 
     x = torch.rand(size=input_size).to(device)
 
-    start_time = time.time()
-    for _ in range(num_samples):
-        _ = model(x)
-    end_time = time.time()
+    with torch.no_grad():
+        for _ in range(num_warmups):
+            _ = model(x)
+    torch.cuda.synchronize()
+
+    with torch.no_grad():
+        start_time = time.time()
+        for _ in range(num_samples):
+            _ = model(x)
+            torch.cuda.synchronize()
+        end_time = time.time()
     elapsed_time = end_time - start_time
     elapsed_time_ave = elapsed_time / num_samples
 
     return elapsed_time_ave
+
 
 def save_model(model, model_dir, model_filename):
 
@@ -176,11 +227,13 @@ def save_model(model, model_dir, model_filename):
     model_filepath = os.path.join(model_dir, model_filename)
     torch.save(model.state_dict(), model_filepath)
 
+
 def load_model(model, model_filepath, device):
 
     model.load_state_dict(torch.load(model_filepath, map_location=device))
 
     return model
+
 
 def save_torchscript_model(model, model_dir, model_filename):
 
@@ -189,11 +242,13 @@ def save_torchscript_model(model, model_dir, model_filename):
     model_filepath = os.path.join(model_dir, model_filename)
     torch.jit.save(torch.jit.script(model), model_filepath)
 
+
 def load_torchscript_model(model_filepath, device):
 
     model = torch.jit.load(model_filepath, map_location=device)
 
     return model
+
 
 def create_model(num_classes=10):
 
@@ -205,15 +260,17 @@ def create_model(num_classes=10):
     # We would use the pretrained ResNet18 as a feature extractor.
     # for param in model.parameters():
     #     param.requires_grad = False
-    
+
     # Modify the last FC layer
     # num_features = model.fc.in_features
     # model.fc = nn.Linear(num_features, 10)
 
     return model
 
+
 class QuantizedResNet18(nn.Module):
     def __init__(self, model_fp32):
+        
         super(QuantizedResNet18, self).__init__()
         # QuantStub converts tensors from floating point to quantized.
         # This will only be used for inputs.
@@ -234,7 +291,14 @@ class QuantizedResNet18(nn.Module):
         x = self.dequant(x)
         return x
 
-def model_equivalence(model_1, model_2, device, rtol=1e-05, atol=1e-08, num_tests=100, input_size=(1,3,32,32)):
+
+def model_equivalence(model_1,
+                      model_2,
+                      device,
+                      rtol=1e-05,
+                      atol=1e-08,
+                      num_tests=100,
+                      input_size=(1, 3, 32, 32)):
 
     model_1.to(device)
     model_2.to(device)
@@ -243,13 +307,15 @@ def model_equivalence(model_1, model_2, device, rtol=1e-05, atol=1e-08, num_test
         x = torch.rand(size=input_size).to(device)
         y1 = model_1(x).detach().cpu().numpy()
         y2 = model_2(x).detach().cpu().numpy()
-        if np.allclose(a=y1, b=y2, rtol=rtol, atol=atol, equal_nan=False) == False:
+        if np.allclose(a=y1, b=y2, rtol=rtol, atol=atol,
+                       equal_nan=False) == False:
             print("Model equivalence test sample failed: ")
             print(y1)
             print(y2)
             return False
 
     return True
+
 
 def main():
 
@@ -262,21 +328,31 @@ def main():
     model_filename = "resnet18_cifar10.pt"
     quantized_model_filename = "resnet18_quantized_cifar10.pt"
     model_filepath = os.path.join(model_dir, model_filename)
-    quantized_model_filepath = os.path.join(model_dir, quantized_model_filename)
+    quantized_model_filepath = os.path.join(model_dir,
+                                            quantized_model_filename)
 
     set_random_seeds(random_seed=random_seed)
 
     # Create an untrained model.
     model = create_model(num_classes=num_classes)
 
-    train_loader, test_loader = prepare_dataloader(num_workers=8, train_batch_size=128, eval_batch_size=256)
-    
-    # Train model.
-    model = train_model(model=model, train_loader=train_loader, test_loader=test_loader, device=cuda_device, learning_rate=1e-1, num_epochs=200)
-    # Save model.
-    save_model(model=model, model_dir=model_dir, model_filename=model_filename)
+    train_loader, test_loader = prepare_dataloader(num_workers=8,
+                                                   train_batch_size=128,
+                                                   eval_batch_size=256)
+
+    # # Train model.
+    # model = train_model(model=model,
+    #                     train_loader=train_loader,
+    #                     test_loader=test_loader,
+    #                     device=cuda_device,
+    #                     learning_rate=1e-1,
+    #                     num_epochs=200)
+    # # Save model.
+    # save_model(model=model, model_dir=model_dir, model_filename=model_filename)
     # Load a pretrained model.
-    model = load_model(model=model, model_filepath=model_filepath, device=cuda_device)
+    model = load_model(model=model,
+                       model_filepath=model_filepath,
+                       device=cuda_device)
     # Move the model to CPU since static quantization does not support CUDA currently.
     model.to(cpu_device)
     # Make a copy of the model for layer fusion
@@ -288,14 +364,20 @@ def main():
     fused_model.eval()
 
     # Fuse the model in place rather manually.
-    fused_model = torch.quantization.fuse_modules(fused_model, [["conv1", "bn1", "relu"]], inplace=True)
+    fused_model = torch.quantization.fuse_modules(fused_model,
+                                                  [["conv1", "bn1", "relu"]],
+                                                  inplace=True)
     for module_name, module in fused_model.named_children():
         if "layer" in module_name:
             for basic_block_name, basic_block in module.named_children():
-                torch.quantization.fuse_modules(basic_block, [["conv1", "bn1", "relu1"], ["conv2", "bn2"]], inplace=True)
+                torch.quantization.fuse_modules(
+                    basic_block, [["conv1", "bn1", "relu1"], ["conv2", "bn2"]],
+                    inplace=True)
                 for sub_block_name, sub_block in basic_block.named_children():
                     if sub_block_name == "downsample":
-                        torch.quantization.fuse_modules(sub_block, [["0", "1"]], inplace=True)
+                        torch.quantization.fuse_modules(sub_block,
+                                                        [["0", "1"]],
+                                                        inplace=True)
 
     # Print FP32 model.
     print(model)
@@ -303,7 +385,16 @@ def main():
     print(fused_model)
 
     # Model and fused model should be equivalent.
-    assert model_equivalence(model_1=model, model_2=fused_model, device=cpu_device, rtol=1e-03, atol=1e-06, num_tests=100, input_size=(1,3,32,32)), "Fused model is not equivalent to the original model!"
+    assert model_equivalence(
+        model_1=model,
+        model_2=fused_model,
+        device=cpu_device,
+        rtol=1e-03,
+        atol=1e-06,
+        num_tests=100,
+        input_size=(
+            1, 3, 32,
+            32)), "Fused model is not equivalent to the original model!"
 
     # Prepare the model for static quantization. This inserts observers in
     # the model that will observe activation tensors during calibration.
@@ -311,7 +402,7 @@ def main():
     # Using un-fused model will fail.
     # Because there is no quantized layer implementation for a single batch normalization layer.
     # quantized_model = QuantizedResNet18(model_fp32=model)
-    # Select quantization schemes from 
+    # Select quantization schemes from
     # https://pytorch.org/docs/stable/quantization-support.html
     quantization_config = torch.quantization.get_default_qconfig("fbgemm")
     # Custom quantization configurations
@@ -319,7 +410,7 @@ def main():
     # quantization_config = torch.quantization.QConfig(activation=torch.quantization.MinMaxObserver.with_args(dtype=torch.quint8), weight=torch.quantization.MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric))
 
     quantized_model.qconfig = quantization_config
-    
+
     # Print quantization configurations
     print(quantized_model.qconfig)
 
@@ -327,7 +418,9 @@ def main():
     torch.quantization.prepare(quantized_model, inplace=True)
 
     # Use training data for calibration.
-    calibrate_model(model=quantized_model, loader=train_loader, device=cpu_device)
+    calibrate_model(model=quantized_model,
+                    loader=train_loader,
+                    device=cpu_device)
 
     quantized_model = torch.quantization.convert(quantized_model, inplace=True)
 
@@ -341,13 +434,22 @@ def main():
     print(quantized_model)
 
     # Save quantized model.
-    save_torchscript_model(model=quantized_model, model_dir=model_dir, model_filename=quantized_model_filename)
+    save_torchscript_model(model=quantized_model,
+                           model_dir=model_dir,
+                           model_filename=quantized_model_filename)
 
     # Load quantized model.
-    quantized_jit_model = load_torchscript_model(model_filepath=quantized_model_filepath, device=cpu_device)
+    quantized_jit_model = load_torchscript_model(
+        model_filepath=quantized_model_filepath, device=cpu_device)
 
-    _, fp32_eval_accuracy = evaluate_model(model=model, test_loader=test_loader, device=cpu_device, criterion=None)
-    _, int8_eval_accuracy = evaluate_model(model=quantized_jit_model, test_loader=test_loader, device=cpu_device, criterion=None)
+    _, fp32_eval_accuracy = evaluate_model(model=model,
+                                           test_loader=test_loader,
+                                           device=cpu_device,
+                                           criterion=None)
+    _, int8_eval_accuracy = evaluate_model(model=quantized_jit_model,
+                                           test_loader=test_loader,
+                                           device=cpu_device,
+                                           criterion=None)
 
     # Skip this assertion since the values might deviate a lot.
     # assert model_equivalence(model_1=model, model_2=quantized_jit_model, device=cpu_device, rtol=1e-01, atol=1e-02, num_tests=100, input_size=(1,3,32,32)), "Quantized model deviates from the original model too much!"
@@ -355,17 +457,37 @@ def main():
     print("FP32 evaluation accuracy: {:.3f}".format(fp32_eval_accuracy))
     print("INT8 evaluation accuracy: {:.3f}".format(int8_eval_accuracy))
 
-    fp32_cpu_inference_latency = measure_inference_latency(model=model, device=cpu_device, input_size=(1,3,32,32), num_samples=100)
-    int8_cpu_inference_latency = measure_inference_latency(model=quantized_model, device=cpu_device, input_size=(1,3,32,32), num_samples=100)
-    int8_jit_cpu_inference_latency = measure_inference_latency(model=quantized_jit_model, device=cpu_device, input_size=(1,3,32,32), num_samples=100)
-    fp32_gpu_inference_latency = measure_inference_latency(model=model, device=cuda_device, input_size=(1,3,32,32), num_samples=100)
-    
-    print("FP32 CPU Inference Latency: {:.2f} ms / sample".format(fp32_cpu_inference_latency * 1000))
-    print("FP32 CUDA Inference Latency: {:.2f} ms / sample".format(fp32_gpu_inference_latency * 1000))
-    print("INT8 CPU Inference Latency: {:.2f} ms / sample".format(int8_cpu_inference_latency * 1000))
-    print("INT8 JIT CPU Inference Latency: {:.2f} ms / sample".format(int8_jit_cpu_inference_latency * 1000))
+    fp32_cpu_inference_latency = measure_inference_latency(model=model,
+                                                           device=cpu_device,
+                                                           input_size=(1, 3,
+                                                                       32, 32),
+                                                           num_samples=100)
+    int8_cpu_inference_latency = measure_inference_latency(
+        model=quantized_model,
+        device=cpu_device,
+        input_size=(1, 3, 32, 32),
+        num_samples=100)
+    int8_jit_cpu_inference_latency = measure_inference_latency(
+        model=quantized_jit_model,
+        device=cpu_device,
+        input_size=(1, 3, 32, 32),
+        num_samples=100)
+    fp32_gpu_inference_latency = measure_inference_latency(model=model,
+                                                           device=cuda_device,
+                                                           input_size=(1, 3,
+                                                                       32, 32),
+                                                           num_samples=100)
+
+    print("FP32 CPU Inference Latency: {:.2f} ms / sample".format(
+        fp32_cpu_inference_latency * 1000))
+    print("FP32 CUDA Inference Latency: {:.2f} ms / sample".format(
+        fp32_gpu_inference_latency * 1000))
+    print("INT8 CPU Inference Latency: {:.2f} ms / sample".format(
+        int8_cpu_inference_latency * 1000))
+    print("INT8 JIT CPU Inference Latency: {:.2f} ms / sample".format(
+        int8_jit_cpu_inference_latency * 1000))
+
 
 if __name__ == "__main__":
 
     main()
-
