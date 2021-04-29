@@ -340,15 +340,15 @@ def main():
                                                    train_batch_size=128,
                                                    eval_batch_size=256)
 
-    # # Train model.
-    # model = train_model(model=model,
-    #                     train_loader=train_loader,
-    #                     test_loader=test_loader,
-    #                     device=cuda_device,
-    #                     learning_rate=1e-1,
-    #                     num_epochs=200)
-    # # Save model.
-    # save_model(model=model, model_dir=model_dir, model_filename=model_filename)
+    # Train model.
+    model = train_model(model=model,
+                        train_loader=train_loader,
+                        test_loader=test_loader,
+                        device=cuda_device,
+                        learning_rate=1e-1,
+                        num_epochs=200)
+    # Save model.
+    save_model(model=model, model_dir=model_dir, model_filename=model_filename)
     # Load a pretrained model.
     model = load_model(model=model,
                        model_filepath=model_filepath,
